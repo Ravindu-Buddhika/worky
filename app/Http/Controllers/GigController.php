@@ -11,13 +11,13 @@ use Inertia\Inertia;
 class GigController extends Controller
 {
     public function index()
-    {
-        $gigs = Gig::with(['freelancer', 'packages'])->latest()->get();
+{
+    $gigs = Gig::with(['freelancer', 'packages'])->latest()->get();
 
-        return Inertia::render('Welcome', [
-            'gigs' => $gigs
-        ]);
-    }
+    return Inertia::render('Welcome', [
+        'gigs' => $gigs, 
+    ]);
+}
 
     public function myGigs()
     {
@@ -53,7 +53,7 @@ class GigController extends Controller
             'title' => $request->title,
             'description' => $request->description,
             'category' => $request->category,
-            'cover_image' => $request->cover_image ?? null, // දැනට null, පස්සේ ඉමේජ් අප්ලෝඩ් දාමු
+            'cover_image' => $request->cover_image ?? null,
         ]);
 
         foreach ($request->packages as $pkg) {

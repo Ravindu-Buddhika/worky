@@ -29,6 +29,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/gigs/create', [GigController::class, 'create'])->name('gigs.create');
     Route::post('/gigs', [GigController::class, 'store'])->name('gigs.store');
     Route::get('/gigs/{gig}/dashboard', [GigController::class, 'gigDashboard'])->name('gigs.dashboard');
+    Route::get('/', [GigController::class, 'index'])->name('home');
+    Route::get('/gigs/{gig}', [GigController::class, 'show'])->name('gigs.show');
 });
 
 require __DIR__.'/auth.php';
