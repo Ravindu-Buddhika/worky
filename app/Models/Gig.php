@@ -8,7 +8,6 @@ class Gig extends Model
 {
     protected $fillable = ['user_id', 'title', 'description', 'category', 'cover_image'];
 
-
     public function freelancer()
     {
         return $this->belongsTo(User::class, 'user_id');
@@ -17,5 +16,10 @@ class Gig extends Model
     public function packages()
     {
         return $this->hasMany(GigPackage::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 }

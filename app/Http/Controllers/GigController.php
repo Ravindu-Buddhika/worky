@@ -7,6 +7,7 @@ use App\Models\GigPackage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Stripe\Stripe;
 
 class GigController extends Controller
 {
@@ -70,9 +71,9 @@ class GigController extends Controller
         return redirect()->route('gigs.my');
     }
 
-    public function gigDashboard($id)
+     public function gigDashboard($id)
     {
-        $gig = Gig::with(['packages', 'orders.client'])->findOrFail($id);
+        $gig = Gig::with(['packages', 'orders.client', 'orders.package'])->findOrFail($id);
 
         if ($gig->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
@@ -83,6 +84,42 @@ class GigController extends Controller
         ]);
     }
 
+    public function acceptOrder($id)
+    {
+        $order = \App\Models\Order::findOrFail($id);
+        
+        if ($order->gig->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order->update(['status' => 'active']);
+        return back()->with('success', 'Order accepted! Time to build.');
+    }
+
+    public function rejectOrder($id)
+    {
+        $order = \App\Models\Order::findOrFail($id);
+        
+        if ($order->gig->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order->update(['status' => 'cancelled']);
+        return back()->with('success', 'Order declined successfully.');
+    }
+
+    public function completeOrder($id)
+    {
+        $order = \App\Models\Order::findOrFail($id);
+        
+        if ($order->gig->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $order->update(['status' => 'completed']);
+        return back()->with('success', 'Awesome job! Order marked as completed.');
+    }
+
     public function show($id)
     {
         $gig = Gig::with(['freelancer', 'packages'])->findOrFail($id);
@@ -90,5 +127,65 @@ class GigController extends Controller
         return Inertia::render('GigDetail', [
             'gig' => $gig
         ]);
+    }
+
+    public function purchasePackage(Request $request, Gig $gig)
+    {
+        $package = $gig->packages()->findOrFail($request->package_id);
+
+        $order = \App\Models\Order::create([
+            'client_id' => Auth::id(),
+            'gig_id' => $gig->id,
+            'gig_package_id' => $package->id,
+            'amount' => $package->price,
+            'status' => 'pending',
+        ]);
+
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        $session = \Stripe\Checkout\Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => 'usd',
+                    'product_data' => ['name' => $gig->title . ' (' . $package->package_name . ')'],
+                    'unit_amount' => $package->price * 100,
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'payment',
+            'success_url' => route('payment.success') . '?order_id=' . $order->id,
+            'cancel_url' => route('payment.cancel'),
+        ]);
+
+        return Inertia::location($session->url);
+    }
+
+    public function paymentSuccess(Request $request)
+    {
+        return Inertia::render('PaymentSuccess', [
+            'order_id' => $request->order_id
+        ]);
+    }
+
+    public function paymentCancel()
+    {
+        return Inertia::render('PaymentCancel', [
+            'message' => 'Payment was cancelled.'
+        ]);
+    }
+
+    public function saveRequirements(Request $request)
+    {
+        $request->validate(['requirements' => 'required', 'contact_info' => 'required']);
+        
+        $order = \App\Models\Order::findOrFail($request->order_id);
+        $order->update([
+            'requirements' => $request->requirements,
+            'contact_info' => $request->contact_info,
+            'status' => 'active'
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Order is now active!');
     }
 }
